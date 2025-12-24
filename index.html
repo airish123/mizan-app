@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mizan - Focus & Iman</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              serif: ['Amiri', 'serif'],
+            },
+            colors: {
+              zen: {
+                bg: '#18181b', // zinc-900
+                surface: '#27272a', // zinc-800
+                text: '#e4e4e7', // zinc-200
+                muted: '#a1a1aa', // zinc-400
+                accent: '#10b981', // emerald-500
+                accentHover: '#059669', // emerald-600
+              }
+            }
+          },
+        },
+      }
+    </script>
+    <style>
+      body {
+        background-color: #18181b;
+        color: #e4e4e7;
+      }
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #18181b;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #3f3f46;
+        border-radius: 3px;
+      }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/"
+  }
+}
+</script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        // --- CONSTANTS ---
+        const PRAYER_API_URL = "https://api.waktusolat.app/v2/solat/SGR01";
+        const QURAN_API_BASE = "https://api.alquran.cloud/v1/ayah";
+
+        const FOCUS_QUOTES = [
+          "Acquire knowledge, and learn tranquility and dignity.",
+          "The seeking of knowledge is obligatory for every Muslim.",
+          "Knowledge is life and ignorance is death.",
+          "Patience is the key to contentment.",
+          "Work for your world as if you will live forever, and for your hereafter as if you will die tomorrow."
+        ];
+
+        const PRAYER_NAMES = ["fajr", "dhuhr", "asr", "maghrib", "isha"];
+
+        const LOCAL_STORAGE_KEYS = {
+          PROGRESS: "mizan_progress",
+          SAVED_VERSE: "mizan_saved_verse",
+          PRAYER_CACHE: "mizan_prayer_cache",
+        };
+
+        const TIMER_DURATIONS = [15, 25, 45, 60];
+
+        // --- ICONS ---
+        const CheckIcon = ({ className }) => (
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        );
+
+        const BookIcon = ({ className }) => (
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+          </svg>
+        );
+
+        const ClockIcon = ({ className }) => (
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+        );
+
+        const RefreshIcon = ({ className }) => (
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <path d="M23 4v6h-6"></path>
+            <path d="M1 20v-6h6"></path>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+        );
+
+        const EyeIcon = ({ className }) => (
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+        );
+
+        const EyeOffIcon = ({ className }) => (
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+            <line x1="1" y1="1" x2="23" y2="23"></line>
+          </svg>
+        );
+
+        const ChevronRightIcon = ({ className }) => (
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        );
+
+        const BellIcon = ({ className }) => (
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+          </svg>
+        );
+
+        const BellOffIcon = ({ className }) => (
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            <path d="M18.63 13A17.89 17.89 0 0 1 18 8"></path>
+            <path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"></path>
+            <path d="M18 8a6 6 0 0 0-9.33-5"></path>
+            <line x1="1" y1="1" x2="23" y2="23"></line>
+          </svg>
+        );
+
+        // --- SERVICES ---
+        const getTodayDateString = () => {
+          const date = new Date();
+          return date.toISOString().split('T')[0];
+        };
+
+        const getProgress = () => {
+          try {
+            const data = localStorage.getItem(LOCAL_STORAGE_KEYS.PROGRESS);
+            return data ? JSON.parse(data) : {};
+          } catch {
+            return {};
+          }
+        };
+
+        const getTodayProgress = () => {
+          const today = getTodayDateString();
+          const allProgress = getProgress();
+          
+          if (!allProgress[today]) {
+            return {
+              date: today,
+              prayersCompleted: [],
+              studySessions: 0,
+              hifzReviewed: false,
+            };
+          }
+          return allProgress[today];
+        };
+
+        const saveProgress = (progress) => {
+          const allProgress = getProgress();
+          allProgress[progress.date] = progress;
+          localStorage.setItem(LOCAL_STORAGE_KEYS.PROGRESS, JSON.stringify(allProgress));
+        };
+
+        const getSavedVerse = () => {
+          try {
+            const data = localStorage.getItem(LOCAL_STORAGE_KEYS.SAVED_VERSE);
+            return data ? JSON.parse(data) : null;
+          } catch {
+            return null;
+          }
+        };
+
+        const saveVerse = (verse) => {
+          localStorage.setItem(LOCAL_STORAGE_KEYS.SAVED_VERSE, JSON.stringify(verse));
+        };
+
+        const getCachedPrayers = () => {
+            try {
+                const data = localStorage.getItem(LOCAL_STORAGE_KEYS.PRAYER_CACHE);
+                return data ? JSON.parse(data) : null;
+            } catch {
+                return null;
+            }
+        }
+
+        const cachePrayers = (prayers) => {
+            const data = {
+                timestamp: Date.now(),
+                prayers
+            };
+            localStorage.setItem(LOCAL_STORAGE_KEYS.PRAYER_CACHE, JSON.stringify(data));
+        }
+
+        // --- COMPONENTS ---
+
+        // 1. ConsistencyTracker
+        const ConsistencyTracker = ({ todayProgress }) => {
+          const last7Days = useMemo(() => {
+            const dates = [];
+            const today = new Date();
+            for (let i = 6; i >= 0; i--) {
+              const d = new Date(today);
+              d.setDate(today.getDate() - i);
+              dates.push(d.toISOString().split('T')[0]);
+            }
+            return dates;
+          }, []);
+
+          const progressData = useMemo(() => getProgress(), [todayProgress]);
+
+          const isDayComplete = (dateStr) => {
+            const p = dateStr === getTodayDateString() ? todayProgress : progressData[dateStr];
+            if (!p) return false;
+            return p.prayersCompleted.length === 5 && p.studySessions > 0 && p.hifzReviewed;
+          };
+
+          const getDayLabel = (dateStr) => {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-US', { weekday: 'narrow' });
+          };
+
+          return (
+            <div className="w-full mb-8">
+              <div className="flex justify-between items-center mb-2">
+                <h2 className="text-xs font-semibold uppercase tracking-widest text-zen-muted">Weekly Consistency</h2>
+              </div>
+              <div className="flex justify-between items-center gap-2 bg-zen-surface p-4 rounded-xl shadow-sm">
+                {last7Days.map((date) => {
+                  const complete = isDayComplete(date);
+                  const isToday = date === getTodayDateString();
+                  
+                  return (
+                    <div key={date} className="flex flex-col items-center gap-2">
+                       <div 
+                        className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${
+                          complete 
+                            ? 'bg-zen-accent text-white shadow-[0_0_10px_rgba(16,185,129,0.3)]' 
+                            : isToday 
+                              ? 'border border-zen-text text-zen-text' 
+                              : 'bg-zinc-800 border border-zinc-700 text-zinc-600'
+                        }`}
+                      >
+                        {complete && (
+                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                          </svg>
+                        )}
+                      </div>
+                      <span className={`text-[10px] ${isToday ? 'text-white font-bold' : 'text-zen-muted'}`}>
+                        {getDayLabel(date)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        };
+
+        // 2. PrayerTracker (with Notifications)
+        const PrayerTracker = ({ progress, onUpdate }) => {
+          const [todaysPrayers, setTodaysPrayers] = useState(null);
+          const [loading, setLoading] = useState(false);
+          const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+          const notificationTimeouts = useRef([]);
+
+          const fetchPrayers = async () => {
+            setLoading(true);
+            try {
+                const cached = getCachedPrayers();
+                const now = Date.now();
+                const oneDay = 24 * 60 * 60 * 1000;
+                
+                let prayersList = cached?.prayers;
+                
+                if (!cached || (now - cached.timestamp > oneDay * 7)) {
+                    const response = await fetch(PRAYER_API_URL);
+                    const data = await response.json();
+                    if (data?.prayers) {
+                        prayersList = data.prayers;
+                        cachePrayers(data.prayers);
+                    }
+                }
+
+                if (prayersList) {
+                    const today = new Date();
+                    const match = prayersList.find((p) => {
+                        const fDate = new Date(p.fajr * 1000);
+                        return fDate.getDate() === today.getDate() && fDate.getMonth() === today.getMonth() && fDate.getFullYear() === today.getFullYear();
+                    });
+
+                    if (match) {
+                         const formatTime = (ts) => {
+                             return new Date(ts * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                         };
+                         
+                         setTodaysPrayers({
+                             date: getTodayDateString(),
+                             fajr: formatTime(match.fajr),
+                             dhuhr: formatTime(match.dhuhr),
+                             asr: formatTime(match.asr),
+                             maghrib: formatTime(match.maghrib),
+                             isha: formatTime(match.isha)
+                         });
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to fetch prayers", e);
+            } finally {
+                setLoading(false);
+            }
+          };
+
+          useEffect(() => {
+            fetchPrayers();
+            if ('Notification' in window && Notification.permission === 'granted') {
+              setNotificationsEnabled(true);
+            }
+          }, []);
+
+          const parseTime = (timeStr) => {
+            try {
+                const [time, modifier] = timeStr.split(' ');
+                let [hours, minutes] = time.split(':').map(Number);
+                
+                if (modifier === 'PM' && hours < 12) hours += 12;
+                if (modifier === 'AM' && hours === 12) hours = 0;
+                
+                const date = new Date();
+                date.setHours(hours, minutes, 0, 0);
+                return date;
+            } catch (e) {
+                return null;
+            }
+          };
+
+          useEffect(() => {
+            notificationTimeouts.current.forEach(id => window.clearTimeout(id));
+            notificationTimeouts.current = [];
+
+            if (notificationsEnabled && todaysPrayers) {
+              PRAYER_NAMES.forEach(name => {
+                const timeStr = todaysPrayers[name];
+                const scheduledTime = parseTime(timeStr);
+                
+                if (scheduledTime) {
+                  const now = new Date();
+                  const delay = scheduledTime.getTime() - now.getTime();
+                  
+                  if (delay > 0) {
+                    const timeoutId = window.setTimeout(() => {
+                       new Notification(`Mizan: It's time for ${name}`, {
+                         body: `Hayya 'alas-salah. It is now time for ${name}.`,
+                         icon: 'https://cdn-icons-png.flaticon.com/512/2904/2904603.png' // Generic icon
+                       });
+                    }, delay);
+                    notificationTimeouts.current.push(timeoutId);
+                  }
+                }
+              });
+            }
+
+            return () => {
+               notificationTimeouts.current.forEach(id => window.clearTimeout(id));
+            };
+          }, [todaysPrayers, notificationsEnabled]);
+
+          const requestNotificationPermission = async () => {
+            if (!('Notification' in window)) {
+              alert("This browser does not support desktop notifications");
+              return;
+            }
+
+            if (notificationsEnabled) {
+              setNotificationsEnabled(false);
+            } else {
+              const permission = await Notification.requestPermission();
+              if (permission === 'granted') {
+                setNotificationsEnabled(true);
+                new Notification("Mizan", { body: "Prayer notifications enabled" });
+              }
+            }
+          };
+
+          const togglePrayer = (prayer) => {
+            const isCompleted = progress.prayersCompleted.includes(prayer);
+            let newCompleted = [...progress.prayersCompleted];
+            
+            if (isCompleted) {
+              newCompleted = newCompleted.filter(p => p !== prayer);
+            } else {
+              newCompleted.push(prayer);
+            }
+            
+            onUpdate({
+              ...progress,
+              prayersCompleted: newCompleted
+            });
+          };
+
+          if (!todaysPrayers && !loading) {
+             return (
+                <div className="bg-zen-surface p-6 rounded-2xl flex flex-col items-center justify-center text-center gap-4">
+                     <p className="text-zen-muted text-sm">Could not load prayer times.</p>
+                     <button onClick={fetchPrayers} className="p-2 bg-zen-surface rounded-full hover:bg-zinc-700 transition"><RefreshIcon /></button>
+                </div>
+             )
+          }
+
+          return (
+            <div className="bg-zen-surface p-6 rounded-2xl shadow-sm mb-6">
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex flex-col">
+                    <h3 className="text-lg font-serif text-zen-text tracking-wide">Prayer Tracker</h3>
+                    <span className="text-xs text-zen-muted uppercase tracking-widest">{todaysPrayers?.date || 'Today'}</span>
+                </div>
+                <button 
+                    onClick={requestNotificationPermission}
+                    className={`p-2 rounded-full transition-all ${notificationsEnabled ? 'text-zen-accent bg-emerald-900/20' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800'}`}
+                    title={notificationsEnabled ? "Notifications Active" : "Enable Notifications"}
+                >
+                    {notificationsEnabled ? <BellIcon className="w-5 h-5" /> : <BellOffIcon className="w-5 h-5" />}
+                </button>
+              </div>
+              
+              {loading ? (
+                  <div className="space-y-4 animate-pulse">
+                      {[1,2,3,4,5].map(i => <div key={i} className="h-10 bg-zinc-800 rounded-lg w-full"></div>)}
+                  </div>
+              ) : (
+                  <div className="space-y-3">
+                    {PRAYER_NAMES.map((name) => {
+                      const time = todaysPrayers ? todaysPrayers[name] : '--:--';
+                      const isDone = progress.prayersCompleted.includes(name);
+                      
+                      return (
+                        <div 
+                          key={name} 
+                          onClick={() => togglePrayer(name)}
+                          className={`group flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 border border-transparent ${isDone ? 'bg-zinc-800/50' : 'hover:bg-zinc-800'}`}
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isDone ? 'bg-zen-accent border-zen-accent text-white' : 'border-zinc-600 text-transparent group-hover:border-zinc-500'}`}>
+                              <CheckIcon className="w-3 h-3" />
+                            </div>
+                            <span className={`capitalize text-sm font-medium ${isDone ? 'text-zinc-500 line-through' : 'text-zen-text'}`}>{name}</span>
+                          </div>
+                          <span className={`text-xs font-mono ${isDone ? 'text-zinc-600' : 'text-zen-accent'}`}>{time}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+              )}
+            </div>
+          );
+        };
+
+        // 3. FocusTimer
+        const FocusTimer = ({ progress, onUpdate }) => {
+          const [targetDuration, setTargetDuration] = useState(25);
+          const [timeLeft, setTimeLeft] = useState(25 * 60);
+          const [isActive, setIsActive] = useState(false);
+          const [isBreak, setIsBreak] = useState(false);
+          const [quote, setQuote] = useState(FOCUS_QUOTES[0]);
+          const timerRef = useRef(null);
+
+          const isZen = isActive && !isBreak;
+
+          useEffect(() => {
+            if (isActive && timeLeft > 0) {
+              timerRef.current = window.setInterval(() => {
+                setTimeLeft((prev) => prev - 1);
+              }, 1000);
+            } else if (timeLeft === 0) {
+              if (timerRef.current) clearInterval(timerRef.current);
+              setIsActive(false);
+              handleComplete();
+            }
+            return () => {
+              if (timerRef.current) clearInterval(timerRef.current);
+            };
+          }, [isActive, timeLeft]);
+
+          const handleComplete = () => {
+            if (!isBreak) {
+              onUpdate({
+                ...progress,
+                studySessions: progress.studySessions + 1
+              });
+              setIsBreak(true);
+              setTimeLeft(5 * 60);
+              setQuote("Rest and reflect. Preparation for the next step.");
+            } else {
+              setIsBreak(false);
+              setTimeLeft(targetDuration * 60);
+              setQuote(FOCUS_QUOTES[Math.floor(Math.random() * FOCUS_QUOTES.length)]);
+            }
+          };
+
+          const toggleTimer = () => {
+            if (!isActive) {
+              setQuote(FOCUS_QUOTES[Math.floor(Math.random() * FOCUS_QUOTES.length)]);
+            }
+            setIsActive(!isActive);
+          };
+
+          const resetTimer = () => {
+            setIsActive(false);
+            setIsBreak(false);
+            setTimeLeft(targetDuration * 60);
+          };
+
+          const setDuration = (mins) => {
+              setTargetDuration(mins);
+              setTimeLeft(mins * 60);
+              setIsActive(false);
+              setIsBreak(false);
+          };
+
+          const formatTime = (seconds) => {
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+          };
+
+          return (
+            <div className={`relative overflow-hidden rounded-2xl transition-all duration-500 ${isZen ? 'bg-zen-bg fixed inset-0 z-50 flex flex-col items-center justify-center' : 'bg-zen-surface p-6 shadow-sm mb-6'}`}>
+              
+              {isZen && (
+                <button 
+                    onClick={() => setIsActive(false)}
+                    className="absolute top-8 right-8 text-zinc-500 hover:text-zinc-300 transition"
+                >
+                    Exit Focus
+                </button>
+              )}
+
+              <div className={`flex flex-col items-center ${isZen ? 'scale-110' : ''}`}>
+                <div className="mb-6 flex items-center justify-center w-12 h-12 rounded-full bg-zinc-800 text-zen-accent">
+                    <ClockIcon />
+                </div>
+                
+                <div className="text-6xl font-mono font-light tracking-tighter text-zen-text mb-4">
+                  {formatTime(timeLeft)}
+                </div>
+
+                <p className={`text-center text-sm text-zen-muted max-w-xs mb-8 font-serif leading-relaxed h-12 flex items-center justify-center transition-opacity duration-500 ${isActive ? 'opacity-100' : 'opacity-60'}`}>
+                  "{quote}"
+                </p>
+
+                <div className="flex gap-4 mb-6">
+                  <button
+                    onClick={toggleTimer}
+                    className={`px-8 py-3 rounded-full font-medium transition-all duration-300 ${
+                      isActive 
+                        ? 'bg-zinc-800 text-zinc-300 border border-zinc-700 hover:bg-zinc-700' 
+                        : 'bg-zen-accent text-white hover:bg-zen-accentHover shadow-lg shadow-emerald-900/20'
+                    }`}
+                  >
+                    {isActive ? 'Pause' : isBreak ? 'Start Break' : 'Start Focus'}
+                  </button>
+                  
+                  {!isZen && (
+                    <button
+                        onClick={resetTimer}
+                        className="px-4 py-3 rounded-full text-zinc-500 hover:text-zinc-300 transition"
+                    >
+                        Reset
+                    </button>
+                  )}
+                </div>
+
+                {!isActive && !isZen && (
+                     <div className="flex items-center gap-2 bg-zinc-800/50 p-1 rounded-xl">
+                         {TIMER_DURATIONS.map(d => (
+                             <button
+                                key={d}
+                                onClick={() => setDuration(d)}
+                                className={`w-10 h-8 rounded-lg text-xs font-medium transition-colors ${
+                                    targetDuration === d 
+                                    ? 'bg-zinc-700 text-white shadow-sm' 
+                                    : 'text-zinc-500 hover:text-zinc-300'
+                                }`}
+                             >
+                                 {d}
+                             </button>
+                         ))}
+                     </div>
+                )}
+                
+                {!isZen && (
+                     <div className="mt-6 text-xs text-zinc-500">
+                        Today's Sessions: <span className="text-zen-text font-bold">{progress.studySessions}</span>
+                    </div>
+                )}
+              </div>
+            </div>
+          );
+        };
+
+        // 4. HifzTool
+        const HifzTool = ({ progress, onUpdate }) => {
+          const [surahInput, setSurahInput] = useState(1);
+          const [ayahInput, setAyahInput] = useState(1);
+          const [verse, setVerse] = useState(null);
+          const [loading, setLoading] = useState(false);
+          
+          const [maskingLevel, setMaskingLevel] = useState(0);
+          const [hiddenIndices, setHiddenIndices] = useState([]);
+          const [isRevealed, setIsRevealed] = useState(false);
+
+          useEffect(() => {
+            const saved = getSavedVerse();
+            if (saved) {
+              setSurahInput(saved.surah);
+              setAyahInput(saved.ayah);
+              fetchVerse(saved.surah, saved.ayah);
+            }
+          }, []);
+
+          const fetchVerse = async (s, a) => {
+            setLoading(true);
+            setMaskingLevel(0);
+            setIsRevealed(false);
+            try {
+              const res = await fetch(`${QURAN_API_BASE}/${s}:${a}`);
+              const data = await res.json();
+              if (data.code === 200) {
+                setVerse(data.data);
+                saveVerse({ surah: s, ayah: a });
+              } else {
+                  console.error("Verse not found");
+              }
+            } catch (e) {
+              console.error(e);
+            } finally {
+              setLoading(false);
+            }
+          };
+
+          const handleSearch = (e) => {
+            e.preventDefault();
+            fetchVerse(surahInput, ayahInput);
+          };
+
+          const generateHiddenIndices = (text, level) => {
+            const words = text.split(' ');
+            const count = Math.floor((words.length * level) / 100);
+            const indices = new Set();
+            
+            while (indices.size < count) {
+              const idx = Math.floor(Math.random() * words.length);
+              indices.add(idx);
+            }
+            setHiddenIndices(Array.from(indices));
+          };
+
+          const applyMasking = (level) => {
+            setMaskingLevel(level);
+            setIsRevealed(false);
+            if (verse && level > 0) {
+              generateHiddenIndices(verse.text, level);
+            } else {
+              setHiddenIndices([]);
+            }
+          };
+
+          const toggleReveal = () => {
+            setIsRevealed(!isRevealed);
+          };
+
+          const markReviewed = () => {
+            onUpdate({
+              ...progress,
+              hifzReviewed: true
+            });
+          };
+
+          const nextAyah = () => {
+              const nextA = ayahInput + 1;
+              setAyahInput(nextA);
+              fetchVerse(surahInput, nextA);
+          }
+
+          const renderText = () => {
+            if (!verse) return null;
+            const words = verse.text.split(' ');
+            
+            return (
+              <div className="text-2xl md:text-3xl font-serif text-right leading-loose" dir="rtl">
+                {words.map((word, idx) => {
+                  const isHidden = hiddenIndices.includes(idx) && !isRevealed;
+                  return (
+                    <span 
+                      key={idx} 
+                      className={`inline-block mx-1 transition-all duration-300 ${isHidden ? 'bg-zinc-800 text-transparent rounded px-1 select-none min-w-[30px]' : 'text-zen-text'}`}
+                    >
+                      {isHidden ? '_____' : word}
+                    </span>
+                  );
+                })}
+              </div>
+            );
+          };
+
+          return (
+            <div className="bg-zen-surface p-6 rounded-2xl shadow-sm">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-serif text-zen-text tracking-wide flex items-center gap-2">
+                    <BookIcon className="w-5 h-5" />
+                    Memorization
+                </h3>
+                {progress.hifzReviewed && (
+                    <span className="flex items-center gap-1 text-xs text-zen-accent uppercase font-bold tracking-widest">
+                        <CheckIcon className="w-3 h-3" /> Reviewed
+                    </span>
+                )}
+              </div>
+
+              <form onSubmit={handleSearch} className="flex gap-2 mb-6">
+                <div className="flex-1 flex flex-col">
+                    <label className="text-[10px] text-zen-muted uppercase tracking-wider mb-1">Surah</label>
+                    <input 
+                    type="number" 
+                    min="1" max="114"
+                    value={surahInput}
+                    onChange={(e) => setSurahInput(parseInt(e.target.value))}
+                    className="w-full bg-zinc-800 border-none rounded-lg p-2 text-center text-zen-text focus:ring-1 focus:ring-zen-accent outline-none"
+                    />
+                </div>
+                <div className="flex-1 flex flex-col">
+                     <label className="text-[10px] text-zen-muted uppercase tracking-wider mb-1">Ayah</label>
+                    <input 
+                    type="number" 
+                    min="1"
+                    value={ayahInput}
+                    onChange={(e) => setAyahInput(parseInt(e.target.value))}
+                    className="w-full bg-zinc-800 border-none rounded-lg p-2 text-center text-zen-text focus:ring-1 focus:ring-zen-accent outline-none"
+                    />
+                </div>
+                <div className="flex flex-col justify-end">
+                    <button type="submit" className="bg-zinc-700 p-2.5 rounded-lg text-white hover:bg-zinc-600 transition">
+                        <RefreshIcon className="w-5 h-5" />
+                    </button>
+                </div>
+              </form>
+
+              <div className="min-h-[160px] flex items-center justify-center bg-zen-bg rounded-xl p-6 mb-6 relative">
+                {loading ? (
+                     <div className="flex gap-1 animate-pulse">
+                        <div className="w-2 h-2 bg-zen-muted rounded-full"></div>
+                        <div className="w-2 h-2 bg-zen-muted rounded-full animation-delay-200"></div>
+                        <div className="w-2 h-2 bg-zen-muted rounded-full animation-delay-400"></div>
+                     </div>
+                ) : verse ? (
+                    <div className="w-full">
+                        <div className="text-center mb-4 text-xs text-zen-muted font-sans tracking-widest uppercase">
+                            {verse.surah.englishName} • Ayah {verse.numberInSurah}
+                        </div>
+                        {renderText()}
+                    </div>
+                ) : (
+                    <p className="text-zen-muted text-sm italic">Load a verse to begin.</p>
+                )}
+              </div>
+
+              {verse && (
+                <div className="space-y-4">
+                    <div className="flex justify-between items-center bg-zinc-800/50 p-1 rounded-lg">
+                        {[0, 30, 60, 100].map((level) => (
+                            <button
+                                key={level}
+                                onClick={() => applyMasking(level)}
+                                className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${maskingLevel === level ? 'bg-zen-surface text-zen-accent shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}
+                            >
+                                {level === 0 ? 'Full' : `${level}%`}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="flex gap-3">
+                         <button 
+                            onClick={toggleReveal}
+                            disabled={maskingLevel === 0}
+                            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-medium transition ${maskingLevel === 0 ? 'opacity-50 cursor-not-allowed text-zinc-600 bg-zinc-800' : 'bg-zinc-800 hover:bg-zinc-700 text-zen-text'}`}
+                        >
+                            {isRevealed ? <EyeOffIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
+                            {isRevealed ? 'Hide' : 'Reveal'}
+                        </button>
+
+                         <button 
+                            onClick={markReviewed}
+                            className={`flex-1 py-3 rounded-lg font-medium transition ${progress.hifzReviewed ? 'bg-zinc-800 text-zen-accent cursor-default' : 'bg-zen-accent text-white hover:bg-zen-accentHover'}`}
+                        >
+                            {progress.hifzReviewed ? 'Reviewed' : 'Mark Done'}
+                        </button>
+                    </div>
+                     
+                     <button onClick={nextAyah} className="w-full flex items-center justify-center gap-1 text-xs text-zinc-500 hover:text-zinc-300 py-2">
+                         Next Ayah <ChevronRightIcon className="w-3 h-3" />
+                     </button>
+                </div>
+              )}
+            </div>
+          );
+        };
+
+        // --- MAIN APP ---
+        const App = () => {
+          const [progress, setProgress] = useState(getTodayProgress());
+          const [activeTab, setActiveTab] = useState('focus');
+
+          const updateProgress = (newProgress) => {
+            setProgress(newProgress);
+            saveProgress(newProgress);
+          };
+          
+          useEffect(() => {
+              const interval = setInterval(() => {
+                  const current = getTodayProgress();
+                  if (current.date !== progress.date) {
+                      setProgress(current);
+                  }
+              }, 60000);
+              return () => clearInterval(interval);
+          }, [progress.date]);
+
+          return (
+            <div className="min-h-screen bg-zen-bg text-zen-text font-sans selection:bg-zen-accent selection:text-white pb-20">
+              <div className="max-w-md mx-auto px-4 py-8">
+                
+                <header className="mb-8 text-center">
+                    <h1 className="text-4xl font-serif font-bold text-transparent bg-clip-text bg-gradient-to-br from-zen-text to-zinc-500 mb-2">Mizan</h1>
+                    <p className="text-xs text-zen-muted uppercase tracking-[0.2em]">Balance • Knowledge • Peace</p>
+                </header>
+
+                <ConsistencyTracker todayProgress={progress} />
+
+                <div className="flex p-1 bg-zen-surface rounded-xl mb-6 shadow-sm">
+                    <button 
+                        onClick={() => setActiveTab('focus')}
+                        className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${activeTab === 'focus' ? 'bg-zinc-700 text-white shadow-md' : 'text-zinc-500 hover:text-zinc-400'}`}
+                    >
+                        Focus
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('spiritual')}
+                        className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${activeTab === 'spiritual' ? 'bg-zinc-700 text-white shadow-md' : 'text-zinc-500 hover:text-zinc-400'}`}
+                    >
+                        Spiritual
+                    </button>
+                </div>
+
+                <main>
+                    {activeTab === 'focus' ? (
+                        <FocusTimer progress={progress} onUpdate={updateProgress} />
+                    ) : (
+                        <div className="space-y-6">
+                            <PrayerTracker progress={progress} onUpdate={updateProgress} />
+                            <HifzTool progress={progress} onUpdate={updateProgress} />
+                        </div>
+                    )}
+                </main>
+                
+                <footer className="mt-12 text-center">
+                     <p className="text-[10px] text-zinc-600">Built for Focus & Iman</p>
+                </footer>
+
+              </div>
+            </div>
+          );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
